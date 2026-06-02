@@ -30,7 +30,8 @@ class GraphBuilder:
         if "topic" in state and state["topic"]:
             prompt = """
                    You are an expert blog content writer. Use Markdown formatting. Generate
-                   a blog title for the {topic}. This title should be creative and SEO friendly
+                   a blog title for the {topic}. This title should be creative, SEO friendly and concise
+                   Not more than a single sentence
                    """
             system_message = prompt.format(topic=state["topic"])
             response = self.llm.invoke(system_message)

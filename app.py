@@ -9,6 +9,8 @@ load_dotenv()
 
 app = FastAPI()
 
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY")
+
 
 @app.get("/")
 async def root():

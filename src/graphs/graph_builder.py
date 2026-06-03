@@ -72,3 +72,18 @@ class GraphBuilder:
             self.build_topic_graph()
 
         return self.graph.compile()
+
+
+## below code is for langsmith langgraph studio
+from langchain_groq import ChatGroq
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ["GROQ_API_KEY"] = groq_api_key = os.getenv("GROQ_API_KEY")
+llm = ChatGroq(api_key=groq_api_key, model="llama-3.1-8b-instant")
+
+# get the graph
+graph_builder = GraphBuilder(llm)
+graph = graph_builder.build_topic_graph().compile()

@@ -83,4 +83,4 @@ llm = ChatGroq(api_key=groq_api_key, model="llama-3.1-8b-instant")
 
 # get the graph
 graph_builder = GraphBuilder(llm)
-graph = graph_builder.build_topic_graph().compile()
+graph = graph_builder.build_language_graph().compile()

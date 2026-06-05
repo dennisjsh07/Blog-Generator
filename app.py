@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
 from src.graphs.graph_builder import GraphBuilder
-from langchain_groq import ChatGroq
+from src.llms.groqllm import GroqLLM
 
 import os
 from dotenv import load_dotenv
@@ -25,8 +25,7 @@ async def create_blogs(request: Request):
     language = data.get("language", "")
 
     # if topic is present invoke the graph and return the response
-    os.environ["GROQ_API_KEY"] = groq_api_key = os.getenv("GROQ_API_KEY")
-    llm = ChatGroq(api_key=groq_api_key, model="llama-3.1-8b-instant")
+    llm = GroqLLM().get_llm()
     graph_builder = GraphBuilder(llm)
 
     if topic and language:

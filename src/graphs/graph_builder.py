@@ -1,18 +1,6 @@
 from langgraph.graph import StateGraph, START, END
-from typing_extensions import TypedDict
-from pydantic import BaseModel, Field
-from langchain_core.messages import HumanMessage
-
-
-class Blog(BaseModel):
-    title: str = Field(description="the title of the blog post")
-    content: str = Field(description="Main content of the blog post")
-
-
-class BlogState(TypedDict):
-    topic: str
-    blog: Blog
-    current_language: str
+from src.states.blogstate import BlogState, Blog
+from src.nodes.blog_node import BlogNode
 
 
 class GraphBuilder:
@@ -20,96 +8,16 @@ class GraphBuilder:
         self.graph = StateGraph(BlogState)
         self.llm = llm
 
-    ## create nodes
-    # title creation node
-    def title_creation(self, state: BlogState):
-        """
-        create the title for the blog
-        """
-
-        # check if topic key exists and its value is not empty
-        if "topic" in state and state["topic"]:
-            prompt = """
-                   You are an expert blog content writer. Use Markdown formatting. Generate
-                   a blog title for the {topic}. This title should be creative, SEO friendly and concise
-                   Not more than a single sentence
-                   """
-            system_message = prompt.format(topic=state["topic"])
-            response = self.llm.invoke(system_message)
-            return {"blog": {"title": response.content}}
-
-    # content generation node
-    def content_generation(self, state: BlogState):
-        """
-        create the content for the blog
-        """
-
-        # check if topic key exists and its value is != empty
-        if "topic" in state and state["topic"]:
-            prompt = """You are expert blog writer. Use Markdown formatting.
-            Generate a detailed blog content with detailed breakdown for the {topic}"""
-            system_message = prompt.format(topic=state["topic"])
-            response = self.llm.invoke(system_message)
-            return {
-                "blog": {"title": state["blog"]["title"], "content": response.content}
-            }
-
-    # translation node
-    def translation(self, state: BlogState):
-        """
-        Translate the content to the specified language.
-        """
-        translation_prompt = """
-        Translate the following blog into {current_language}.
-
-        Return JSON:
-
-        {{
-            "title": "...",
-            "content": "..."
-        }}
-
-        TITLE:
-        {title}
-
-        CONTENT:
-        {content}
-        """
-
-        translated_blog = self.llm.with_structured_output(Blog).invoke(
-            translation_prompt.format(
-                current_language=state["current_language"],
-                title=state["blog"]["title"],
-                content=state["blog"]["content"],
-            )
-        )
-
-        return {"blog": translated_blog}
-
-    # route node
-    def route(self, state: BlogState):
-        return {"current_language": state["current_language"]}
-
-    # route_decision conditional node
-    def route_decision(self, state: BlogState):
-        """
-        Route the content to the respective translation function.
-        """
-        if state["current_language"] == "hindi":
-            return "hindi"
-        elif state["current_language"] == "french":
-            return "french"
-        else:
-            return state["current_language"]
-
     ## build graph
     def build_topic_graph(self):
         """
         Build a graph to generate blogss based on topic
         """
+
+        self.blog_node = BlogNode(self.llm)
         # add nodes
-        self.graph.add_node("title_creation", self.title_creation)
-        self.graph.add_node("content_generation", self.content_generation)
+        self.graph.add_node("title_creation", self.blog_node.title_creation)
+        self.graph.add_node("content_generation", self.blog_node.content_generation)
 
         # add edges
         self.graph.add_edge(START, "title_creation")
@@ -123,18 +31,20 @@ class GraphBuilder:
         """
         Build a graph for blog generation with inputs topic and language
         """
+
+        self.blog_node = BlogNode(self.llm)
         # add nodes
-        self.graph.add_node("title_creation", self.title_creation)
-        self.graph.add_node("content_generation", self.content_generation)
+        self.graph.add_node("title_creation", self.blog_node.title_creation)
+        self.graph.add_node("content_generation", self.blog_node.content_generation)
         self.graph.add_node(
             "hindi_translation",
-            lambda state: self.translation({**state, "current_language": "hindi"}),
+            lambda state: self.blog_node.translation({**state, "current_language": "hindi"}),
         )
         self.graph.add_node(
             "french_translation",
-            lambda state: self.translation({**state, "current_language": "french"}),
+            lambda state: self.blog_node.translation({**state, "current_language": "french"}),
         )
-        self.graph.add_node("route", self.route)
+        self.graph.add_node("route", self.blog_node.route)
 
         # add edges
         self.graph.add_edge(START, "title_creation")
@@ -142,7 +52,7 @@ class GraphBuilder:
         self.graph.add_edge("content_generation", "route")
         self.graph.add_conditional_edges(
             "route",
-            self.route_decision,
+            self.blog_node.route_decision,
             {"hindi": "hindi_translation", "french": "french_translation"},
         )
         self.graph.add_edge("hindi_translation", END)
